@@ -21,6 +21,10 @@ export const LoginForm = () => {
         } catch (error) {}
     };
 
+    const handleGoogleLogin = () => {
+        window.location.href = 'http://localhost:3000/api/auth/google/callback';
+    };
+
     return ( 
         <form onSubmit={handleSubmit(onSubmit)}>
             <div>
@@ -52,6 +56,22 @@ export const LoginForm = () => {
                 disabled={isLoading}
             >
                 {isLoading ? 'Logging in...' : 'Login'}
+            </button>
+
+            <button
+                type="button"
+                onClick={handleGoogleLogin}
+                style={{
+                    marginTop: '10px',
+                    backgroundColor: '#4285F4',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                }}
+            >
+                Login with Google
             </button>
         </form>
     )

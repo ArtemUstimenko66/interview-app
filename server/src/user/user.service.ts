@@ -16,7 +16,10 @@ export class UserService {
   async create(createUserDto: CreateUserDto): Promise<User> {
     await this.validateUniqueUser(createUserDto);
 
-    const hashedPassword = await this.hashPassword(createUserDto.password);
+    const hashedPassword = createUserDto.password 
+    ? await this.hashPassword(createUserDto.password)
+    : undefined;
+    
     const user = this.createUserEntity(createUserDto, hashedPassword);
 
     return this.userRepository.save(user);
@@ -32,11 +35,17 @@ export class UserService {
     }
   }
 
+  async update(id: number, userData: Partial<User>): Promise<User> {
+    const user = await this.findById(id);
+    const updatedUser = Object.assign(user, userData);
+    return this.userRepository.save(updatedUser);
+  }
+
   private async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, JWT_CONSTANTS.SALT_ROUNDS);
   }
 
-  private createUserEntity(createUserDto: CreateUserDto, hashedPassword: string): User {
+  private createUserEntity(createUserDto: CreateUserDto, hashedPassword: string | undefined): User {
     return this.userRepository.create({
       ...createUserDto,
       password: hashedPassword,

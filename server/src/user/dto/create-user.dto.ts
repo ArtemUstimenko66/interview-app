@@ -11,7 +11,19 @@ export class CreateUserDto {
 
   @IsString()
   @MinLength(6)
-  password: string;
+  password?: string;
+
+  @IsString()
+  firstName?: string;
+
+  @IsString()
+  lastName?: string;
+
+  @IsString()
+  picture?: string;
+
+  @IsString()
+  googleId?: string;
 
   @IsOptional()
   @IsEnum(UserRole)

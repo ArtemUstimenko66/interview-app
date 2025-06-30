@@ -8,7 +8,8 @@ import { UserModule } from '../user/user.module';
 import { TokenService } from './token.service';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { JWT_CONSTANTS } from 'src/common/constants/auth.constants';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { CookieService } from './cookie.service';
 
 @Module({
   imports: [
@@ -19,14 +20,24 @@ import { JWT_CONSTANTS } from 'src/common/constants/auth.constants';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: JWT_CONSTANTS.ACCESS_TOKEN_EXPIRATION,
+          expiresIn: configService.get<string>('JWT_ACCESS_TOKEN_EXPIRATION') 
         },
       }),
       inject: [ConfigService],
     }),
   ],
-  providers: [AuthService, TokenService, LocalStrategy, JwtStrategy],
   controllers: [AuthController],
-  exports: [AuthService, TokenService],
+  providers: [
+    AuthService, 
+    TokenService, 
+    CookieService,
+    LocalStrategy, 
+    JwtStrategy, 
+    GoogleStrategy],
+  exports: [
+    AuthService, 
+    TokenService,
+    CookieService,
+  ],
 })
 export class AuthModule {}

@@ -24,9 +24,21 @@ export class User {
   @Column({ unique: true })
   username: string;
 
-  @Column()
+  @Column({ nullable: true })
   @Exclude()
-  password: string;
+  password: string
+
+  @Column({ nullable: true, unique: true })
+  googleId: string;
+
+  @Column({ nullable: true })
+  firstName: string;
+
+  @Column({ nullable: true })
+  lastName: string;
+
+  @Column({ nullable: true })
+  picture: string;
 
   @Column({
     type: 'enum',

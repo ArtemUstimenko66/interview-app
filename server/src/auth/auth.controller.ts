@@ -3,13 +3,16 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { IUser } from './interfaces/user.interface';
+import { IGoogleUser, IUser } from './interfaces/user.interface';
 import { RolesGuard } from './guards/roles.guard';
 import { Response, Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth.response.dto';
 import { LoginDto } from './dto/login.dto';
 import { UserDto } from './dto/user.dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { CookieService } from './cookie.service';
+import { ConfigService } from '@nestjs/config';
 
 interface RequestWithUser extends Request {
   user: IUser;
@@ -20,9 +23,13 @@ interface RequestWithCookies extends Request {
 }
 
 @ApiTags('auth')
-@Controller('auth')
+@Controller('api/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly cookieService: CookieService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -85,4 +92,24 @@ export class AuthController {
     return { message: 'Successfully logged out' };
   }
 
+  //Google 
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth(): Promise<void> {}
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthRedirect(
+    @Res() res: Response, 
+    @Req() req: { user: IGoogleUser }
+  ) {
+    const tokens = await this.authService.googleLogin(req.user);
+
+    this.cookieService.setAuthCookies(res, tokens);
+    
+    const frontendUrl = this.configService.get('FRONTEND_URL');
+
+    return res.redirect(`${frontendUrl}/profile`);
+  }
 }

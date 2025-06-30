@@ -5,8 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { UserService } from '../user/user.service';
-import { IUser } from './interfaces/user.interface';
-import { TOKEN_TYPES } from './interfaces/tokens.interface';
+import { CookieService } from './cookie.service';
+import { IGoogleUser, IUser } from './interfaces/user.interface';
+import { ITokens, TOKEN_TYPES } from './interfaces/tokens.interface';
 import { TokenService } from './token.service';
 import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
@@ -18,6 +19,7 @@ export class AuthService {
   constructor(
     private userService: UserService,
     private tokenService: TokenService,
+    private readonly cookieService: CookieService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<IUser | null> {
@@ -35,39 +37,42 @@ export class AuthService {
   }
 
   async login(user: IUser, res: Response): Promise<AuthResponseDto> {
-    const accessToken = this.tokenService.createAccessToken(user);
-    const refreshToken = this.tokenService.createRefreshToken(user);
 
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: false, // потом поменять на true при https
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 минут
-    });
+    const tokens = this.tokenService.generateTokenPair(user);
 
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
-    });
+    this.cookieService.setAuthCookies(res, tokens);
 
     return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
       user: this.createUserResponse(user),
     };
   }
 
-  private createUserResponse(user: IUser): IUser {
-    return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-    };
-  }
+  async googleLogin(googleUser: IGoogleUser): Promise<ITokens> {
+    let user = await this.userService.findByEmail(googleUser.email);
 
+    if (!user) {
+      user = await this.userService.create({
+        email: googleUser.email,
+        username: googleUser.email.split('@')[0],
+        firstName: googleUser.firstName,
+        lastName: googleUser.lastName,
+        picture: googleUser.picture,
+        googleId: googleUser.googleId,
+      });
+    } else if (!user.googleId) {
+      // Обновляем существующего пользователя с Google данными
+      user.googleId = googleUser.googleId;
+      user.firstName = googleUser.firstName;
+      user.lastName = googleUser.lastName;
+      user.picture = googleUser.picture;
+      user = await this.userService.update(user.id, user);
+    }
+
+    return this.tokenService.generateTokenPair(user);
+  }
+  
   async register(createUserDto: RegisterDto, res: Response): Promise<AuthResponseDto> {
     try {
       await this.validateUserDoesNotExist(createUserDto);
@@ -78,6 +83,15 @@ export class AuthService {
     } catch (error) {
       this.handleRegistrationError(error);
     }
+  }
+
+  private createUserResponse(user: IUser): IUser {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    };
   }
 
   private async validateUserDoesNotExist(createUserDto: RegisterDto): Promise<void> {
@@ -119,16 +133,6 @@ export class AuthService {
   }
 
   async logout(res: Response) : Promise<void> { 
-    res.clearCookie('access_token', { 
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-    });
-
-    res.clearCookie('refresh_token', { 
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-    });
+    this.cookieService.clearAuthCookies(res);
   }
 }
